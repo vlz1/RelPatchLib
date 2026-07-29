@@ -1,46 +1,26 @@
 #include "RelPatch.h"
+#include "RelDispatch.h"
 #include "RelX86Util.h"
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include "RelPlatform.h"
 #include <stdio.h>
 
-RPLStatus RPLDispatchCommon(RPLCodePage* codePage, RPLHookContext* context)
+void* RPLAllocatePagesWithin2GB(void* address, size_t nPages)
 {
-    RPLDispatchTable* dispatchTable = codePage->meta.dispatchTable;
-    for (uint16_t i = 0; i < dispatchTable->nDispatchEntries; ++i)
-    {
-        RPLDispatchEntry* entry = &dispatchTable->entries[i];
-        entry->function(context, entry->userData);
-    }
-    return RPL_STATUS_SUCCESS;
-}
-
-RPLStatus RPLAppendHookToDispatch(RPLCodePage* codePage, RPLHookFunc hook, uint32_t priority, void* userData)
-{
-    RPLDispatchTable* dispatchTable = codePage->meta.dispatchTable;
-    if (dispatchTable->nDispatchEntries == 0)
-    {
-        ++dispatchTable->nDispatchEntries;
-        dispatchTable->entries[0] = (RPLDispatchEntry){ 
-            .function = hook,
-            .userData = userData,
-            .priority = priority
-        };
-        return RPL_STATUS_SUCCESS;
-    }
-    
-    // TODO: Binary search for a place to put the new dispatch entry
-
-    return RPL_STATUS_SUCCESS;
+    void* addressOut = NULL;
+    RPLStatus status = RPLPlatformAllocPagesWithin2GB(address, nPages, &addressOut);
+    if (status != RPL_STATUS_SUCCESS)
+        return NULL;
+    return addressOut;
 }
 
 RPLStatus RPLInstallPrologueHookEx(void* function, RPLHookFunc hook, RPLConvention callingConvention, uint32_t priority, void* userData)
 {
     RPLStatus status = RPL_STATUS_SUCCESS;
     uint8_t* functionBytes = (uint8_t*)function;
-    if (!RPLIsDynamicCodeAvailable())
-        return RPL_STATUS_DYNAMIC_CODE_PROHIBITED;
+    
+    // TODO: Platform-agnostic method to check if dynamic code is allowed
+    // if (!RPLIsDynamicCodeAvailable())
+    //    return RPL_STATUS_DYNAMIC_CODE_PROHIBITED;
 
     // Validate calling convention
 #if defined(_M_X64)
@@ -80,13 +60,15 @@ RPLStatus RPLInstallPrologueHookEx(void* function, RPLHookFunc hook, RPLConventi
         return RPL_STATUS_ALLOCATION_FAILED;
 
     // Allocate the table that'll hold our function pointers
-    RPLDispatchTable* dispatchTable = (RPLDispatchTable*)VirtualAlloc(NULL,
-        RPL_PAGE_SIZE * RPL_DISPATCH_TABLE_PAGES,
-        MEM_RESERVE | MEM_COMMIT,
-        PAGE_READWRITE);
-    if (dispatchTable == NULL)
+    size_t dispatchTableSize = RPL_PAGE_SIZE * RPL_DISPATCH_TABLE_PAGES;
+    RPLDispatchTable* dispatchTable;
+    status = RPLPlatformVirtualAlloc(NULL, 
+        dispatchTableSize, 
+        RPL_PAGE_READ_WRITE, 
+        (void**)&dispatchTable);
+    if (status != RPL_STATUS_SUCCESS)
     {
-        VirtualFree(codePage, 0, MEM_RELEASE);
+        RPLPlatformVirtualFree(codePage, RPL_PAGE_SIZE);
         return RPL_STATUS_ALLOCATION_FAILED;
     }
 
@@ -97,8 +79,8 @@ RPLStatus RPLInstallPrologueHookEx(void* function, RPLHookFunc hook, RPLConventi
     status = RPLAppendHookToDispatch(codePage, hook, priority, userData);
     if (status != RPL_STATUS_SUCCESS)
     {
-        VirtualFree(dispatchTable, 0, MEM_RELEASE);
-        VirtualFree(codePage, 0, MEM_RELEASE);
+        RPLPlatformVirtualFree(dispatchTable, dispatchTableSize);
+        RPLPlatformVirtualFree(codePage, RPL_PAGE_SIZE);
         return status;
     }
 
@@ -112,28 +94,28 @@ RPLStatus RPLInstallPrologueHookEx(void* function, RPLHookFunc hook, RPLConventi
     status = RPLRelocateCode(&relocator);
     if (status != RPL_STATUS_SUCCESS)
     {
-        VirtualFree(dispatchTable, 0, MEM_RELEASE);
-        VirtualFree(codePage, 0, MEM_RELEASE);
+        RPLPlatformVirtualFree(dispatchTable, dispatchTableSize);
+        RPLPlatformVirtualFree(codePage, RPL_PAGE_SIZE);
         return status;
     }
 
     // Mark code page as executable
-    DWORD oldProtect = 0;
-    if (!VirtualProtect(codePage, RPL_PAGE_SIZE, PAGE_EXECUTE_READ, &oldProtect))
+    RPLPageProtect oldProtect = 0;
+    if (!RPLPlatformVirtualProtect(codePage, RPL_PAGE_SIZE, RPL_PAGE_READ_EXECUTE, &oldProtect))
         goto virtualprotect_failed;
 
     // Write the jump that goes to our code page
-    if (!VirtualProtect(function, relocator.inRequiredBytes, PAGE_EXECUTE_READWRITE, &oldProtect))
+    if (!RPLPlatformVirtualProtect(function, relocator.inRequiredBytes, RPL_PAGE_READ_WRITE_EXECUTE, &oldProtect))
         goto virtualprotect_failed;
     RPLWriteJumpRel32(function, codePage->code, relocator.nBytesRelocated);
 
-    if (!VirtualProtect(function, relocator.inRequiredBytes, oldProtect, &oldProtect))
+    if (!RPLPlatformVirtualProtect(function, relocator.inRequiredBytes, oldProtect, &oldProtect))
         goto virtualprotect_failed;
 
     return RPL_STATUS_SUCCESS;
 virtualprotect_failed:
-    VirtualFree(dispatchTable, 0, MEM_RELEASE);
-    VirtualFree(codePage, 0, MEM_RELEASE);
+    RPLPlatformVirtualFree(dispatchTable, dispatchTableSize);
+    RPLPlatformVirtualFree(codePage, RPL_PAGE_SIZE);
     return RPL_STATUS_VIRTUALPROTECT_FAILED;
 }
 

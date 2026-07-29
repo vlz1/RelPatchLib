@@ -2,6 +2,7 @@
 #define RELX86_UTIL_H
 
 #include "RelPatch.h"
+#include "RelDispatch.h"
 #include "Zydis/Zydis.h"
 
 #ifdef _M_X64

@@ -19,6 +19,7 @@ extern "C" {
 typedef enum
 {
     RPL_STATUS_SUCCESS,
+    RPL_STATUS_PLATFORM_ERROR,
     RPL_STATUS_INVALID_ARGUMENT,
     RPL_STATUS_PATTERN_MISMATCH,
     RPL_STATUS_PATTERN_MALFORMED,
@@ -44,44 +45,9 @@ typedef struct
 
 typedef void(*RPLHookFunc)(RPLHookContext* context, void* userData);
 
-typedef struct
-{
-    RPLHookFunc function;
-    void* userData;
-    int priority;
-} RPLDispatchEntry;
-
-typedef struct
-{
-    uint32_t nDispatchEntries;
-    uint32_t nMaxDispatchEntries;
-    RPLDispatchEntry entries[RPL_DISPATCH_TABLE_ENTRIES];
-} RPLDispatchTable;
-
-typedef struct
-{
-    uint32_t signature;
-    RPLDispatchTable* dispatchTable;
-} RPLCodePageMeta;
-
-typedef struct
-{
-    uint8_t code[1024];
-    uint8_t constData[RPL_PAGE_SIZE - 1024 - sizeof(RPLCodePageMeta)];
-    RPLCodePageMeta meta;
-} RPLCodePage;
-
-typedef struct RPLCompiledPattern RPLCompiledPattern;
-
 RPLStatus RPLInstallPrologueHookEx(void* function, RPLHookFunc hook, RPLConvention callingConvention, uint32_t priority, void* userData);
 RPLStatus RPLInstallPrologueHook(void* function, RPLHookFunc hook, RPLConvention callingConvention);
 
-// Returns true if the current process is Large Address Aware, false otherwise.
-bool RPLIsLargeAddressAware();
-// Returns true if Arbitrary Code Guard (ACG) is disabled.
-bool RPLIsDynamicCodeAvailable();
-// Returns the HMODULE of the module at the given address. If no module exists at that address, returns NULL. 
-void* RPLGetModuleFromAddress(void* address);
 // Allocate n read/write pages within +/- 2 GB of the given address. Returns NULL if no pages could be allocated.
 void* RPLAllocatePagesWithin2GB(void* address, size_t nPages);
 // Disassemble n instructions and write them into a temporary buffer. Returned buffer must be deallocated with free().
@@ -110,6 +76,8 @@ static inline bool RPLIsAddressPageAligned(void* address)
 {
     return ((uintptr_t)address & RPL_PAGE_MASK) == 0;
 }
+
+typedef struct RPLCompiledPattern RPLCompiledPattern;
 
 // Compile a pattern into a compact representation and retrieve information about any errors.
 RPLStatus RPLCompilePatternEx(const char* pattern, RPLCompiledPattern** compiledPatternOut, char** errorOut, int* errorIndexOut);

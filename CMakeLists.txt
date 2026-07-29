@@ -9,6 +9,14 @@ add_library(RelPatchLib STATIC
     Source/RelPatch.c
     Source/RelX86Util.c
     Source/RelX86Util.h
-    Source/Pattern.c)
+    Source/RelDispatch.c
+    Source/RelDispatch.h
+    Source/Pattern.c
+    Source/RelPlatform.h)
+
+if (WIN32)
+    target_sources(RelPatchLib PRIVATE Source/RelPlatformWin32.c)
+endif ()
+
 target_include_directories(RelPatchLib PUBLIC ${CMAKE_CURRENT_LIST_DIR}/Include)
 target_link_libraries(RelPatchLib PRIVATE Zydis)

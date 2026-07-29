@@ -4,6 +4,29 @@
 #include "RelPlatform.h"
 #include <stdio.h>
 
+static const char* s_StatusStrings[] = {
+    "Success",
+    "Platform error",
+    "Invalid argument",
+    "Pattern mismatch",
+    "Pattern malformed",
+    "Allocation failed",
+    "Instruction relocation failed",
+    "Disassembly failed",
+    "Page protection failed",
+    "Dynamic code prohibited",
+    "Invalid calling convention"
+};
+
+const char* RPLGetStatusString(RPLStatus status)
+{
+    if (status >= (sizeof(s_StatusStrings) / sizeof(const char*)))
+        return "???";
+    else if (status < 0)
+        return "???";
+    return s_StatusStrings[(int)status];
+}
+
 void* RPLAllocatePagesWithin2GB(void* address, size_t nPages)
 {
     void* addressOut = NULL;
@@ -91,7 +114,8 @@ RPLStatus RPLInstallPrologueHookEx(void* function, RPLHookFunc hook, RPLConventi
     relocator.inCallingConvention = callingConvention;
     relocator.inRequiredBytes = 5;
     relocator.inMaxBytes = 16;
-    status = RPLRelocateCode(&relocator);
+    // TODO: Move in the relocator from the old project
+    //status = RPLRelocateCode(&relocator);
     if (status != RPL_STATUS_SUCCESS)
     {
         RPLPlatformVirtualFree(dispatchTable, dispatchTableSize);

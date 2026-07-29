@@ -65,6 +65,26 @@ void RPLWriteJumpRel32(uint8_t* dst, void* callTarget, uint32_t freeSpace)
         dst[i] = 0x90; // Pad with NOP
 }
 
+uint8_t* RPLGetJumpTargetRel32(void* address)
+{
+    uint8_t* functionBytes = address;
+    if (functionBytes[0] != 0xE9)
+        return NULL;
+
+    int32_t rel32 = *(int32_t*)(functionBytes + 1);
+    return RPLCalculateAddressFromRel32(functionBytes, 5, rel32);
+}
+
+uint8_t* RPLGetCallTargetRel32(void* address)
+{
+    uint8_t* functionBytes = address;
+    if (functionBytes[0] != 0xE8)
+        return NULL;
+
+    int32_t rel32 = *(int32_t*)(functionBytes + 1);
+    return RPLCalculateAddressFromRel32(functionBytes, 5, rel32);
+}
+
 char* RPLX86DumpInstructions(void* address, int nInstructions, bool withAddresses)
 {
     ZydisDisassembledInstruction instruction = { 0 };

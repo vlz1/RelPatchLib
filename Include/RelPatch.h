@@ -31,6 +31,8 @@ typedef enum
     RPL_STATUS_INVALID_CALLING_CONVENTION
 } RPLStatus;
 
+const char* RPLGetStatusString(RPLStatus status);
+
 typedef enum
 {
     RPL_CALL_X64,

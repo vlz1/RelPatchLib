@@ -143,7 +143,7 @@ RPLStatus RPLPlatformAllocPagesWithin2GB(void* baseAddress, size_t nPages, void*
         return RPL_STATUS_INVALID_ARGUMENT;
 
     const ptrdiff_t maxDistance = 0x7FFFFFFF;
-#if defined(_M_X64)
+#if defined(RPL_X86_64)
     HMODULE hModule = RPLWin32GetModuleFromAddress(baseAddress);
     if (hModule == NULL)
     {
@@ -191,7 +191,7 @@ RPLStatus RPLPlatformAllocPagesWithin2GB(void* baseAddress, size_t nPages, void*
     // TODO: Figure something else out...
     // Maybe fall back to VirtualAlloc2 with MEM_ADDRESS_REQUIREMENTS if it's available?
     return RPL_STATUS_ALLOCATION_FAILED;
-#elif defined(_M_IX86)
+#elif defined(RPL_X86_32)
     // The address space is much more tightly packed on x86_32.
     // Since there's only 2 GB of user address space, we can allocate from anywhere.
     // TODO: This might work differently if the process is Large Address Aware

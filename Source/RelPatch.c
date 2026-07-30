@@ -46,19 +46,20 @@ RPLStatus RPLInstallPrologueHookEx(void* function, RPLHookFunc hook, RPLConventi
     //    return RPL_STATUS_DYNAMIC_CODE_PROHIBITED;
 
     // Validate calling convention
-#if defined(_M_X64)
-    if (callingConvention != RPL_CALL_X64)
-        return RPL_STATUS_INVALID_CALLING_CONVENTION;
-#elif defined(_M_IX86)
     switch (callingConvention)
     {
+#if defined(_M_X64)
+    case RPL_CALL_X64_MS_ABI:
+    case RPL_CALL_X64_SYSV_ABI:
+        break;
+#elif defined(_M_IX86)
     case RPL_CALL_X86_CDECL:
     case RPL_CALL_X86_STDCALL:
         break;
+#endif
     default:
         return RPL_STATUS_INVALID_CALLING_CONVENTION;
     }
-#endif
 
     // Check if a hook is already installed here
     uint8_t* jumpTarget = RPLGetJumpTargetRel32(function);
@@ -114,8 +115,7 @@ RPLStatus RPLInstallPrologueHookEx(void* function, RPLHookFunc hook, RPLConventi
     relocator.inCallingConvention = callingConvention;
     relocator.inRequiredBytes = 5;
     relocator.inMaxBytes = 16;
-    // TODO: Move in the relocator from the old project
-    //status = RPLRelocateCode(&relocator);
+    status = RPLRelocateCode(&relocator);
     if (status != RPL_STATUS_SUCCESS)
     {
         RPLPlatformVirtualFree(dispatchTable, dispatchTableSize);
@@ -125,15 +125,15 @@ RPLStatus RPLInstallPrologueHookEx(void* function, RPLHookFunc hook, RPLConventi
 
     // Mark code page as executable
     RPLPageProtect oldProtect = 0;
-    if (!RPLPlatformVirtualProtect(codePage, RPL_PAGE_SIZE, RPL_PAGE_READ_EXECUTE, &oldProtect))
+    if (!RPL_SUCCESSFUL(RPLPlatformVirtualProtect(codePage, RPL_PAGE_SIZE, RPL_PAGE_READ_EXECUTE, &oldProtect)))
         goto virtualprotect_failed;
 
     // Write the jump that goes to our code page
-    if (!RPLPlatformVirtualProtect(function, relocator.inRequiredBytes, RPL_PAGE_READ_WRITE_EXECUTE, &oldProtect))
+    if (!RPL_SUCCESSFUL(RPLPlatformVirtualProtect(function, relocator.inRequiredBytes, RPL_PAGE_READ_WRITE_EXECUTE, &oldProtect)))
         goto virtualprotect_failed;
     RPLWriteJumpRel32(function, codePage->code, relocator.nBytesRelocated);
 
-    if (!RPLPlatformVirtualProtect(function, relocator.inRequiredBytes, oldProtect, &oldProtect))
+    if (!RPL_SUCCESSFUL(RPLPlatformVirtualProtect(function, relocator.inRequiredBytes, oldProtect, &oldProtect)))
         goto virtualprotect_failed;
 
     return RPL_STATUS_SUCCESS;

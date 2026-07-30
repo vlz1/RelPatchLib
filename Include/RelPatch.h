@@ -10,6 +10,34 @@ extern "C" {
 #include <stdbool.h>
 #endif
 
+#if defined(_MSC_VER) && !defined(__clang__)
+    #if defined(_M_X64)
+        #define RPL_X86_64 1
+    #elif defined(_M_IX86)
+        #define RPL_X86_32 1
+    #else
+        #error RelPatchLib only supports x86 and x86_64
+    #endif
+    #define RPL_NO_INLINE __declspec(noinline)
+#else
+    #if UINTPTR_MAX == UINT64_MAX
+        #define RPL_X86_64 1
+    #else
+        #define RPL_X86_32 1
+    #endif
+    #define RPL_NO_INLINE __attribute__((noinline))
+#endif
+
+#if defined(RPL_X86_64)
+    #if defined(_WIN64)
+        #define RPL_DEFAULT_CONVENTION RPL_CALL_X64_MS_ABI
+    #else
+        #define RPL_DEFAULT_CONVENTION RPL_CALL_X64_SYSV_ABI
+    #endif
+#else
+    #define RPL_DEFAULT_CONVENTION RPL_CALL_X86_CDECL
+#endif
+
 #define RPL_PAGE_SIZE 4096
 #define RPL_PAGE_MASK ((uintptr_t)(RPL_PAGE_SIZE - 1))
 #define RPL_CODE_SIGNATURE 0xC001C0DEU
@@ -31,19 +59,38 @@ typedef enum
     RPL_STATUS_INVALID_CALLING_CONVENTION
 } RPLStatus;
 
+typedef intptr_t RPLRegisterInt;
+typedef uintptr_t RPLRegisterUInt;
+
+#define RPL_ALIGN_UP(x, multiple) (((uintptr_t)(x) + (multiple) - 1) & ~((multiple) - 1))
+#define RPL_SUCCESSFUL(x) ((x) == RPL_STATUS_SUCCESS)
+
 const char* RPLGetStatusString(RPLStatus status);
 
 typedef enum
 {
-    RPL_CALL_X64,
-    RPL_CALL_X86_CDECL,
-    RPL_CALL_X86_STDCALL
+    RPL_CALL_X64_MS_ABI = 0,
+    RPL_CALL_X64_SYSV_ABI = 1,
+    RPL_CALL_X86_CDECL = 2,
+    RPL_CALL_X86_STDCALL = 3
 } RPLConvention;
 
-typedef struct
-{
-    int args[4];
-} RPLHookContext;
+typedef struct RPLHookContext RPLHookContext;
+
+RPLRegisterInt RPLGetIntArg(RPLHookContext* context, int argIndex);
+void RPLSetIntArg(RPLHookContext* context, int argIndex, RPLRegisterInt value);
+
+RPLRegisterUInt RPLGetUIntArg(RPLHookContext* context, int argIndex);
+void RPLSetUIntArg(RPLHookContext* context, int argIndex, RPLRegisterUInt value);
+
+char* RPLGetStringArg(RPLHookContext* context, int argIndex);
+void RPLSetStringArg(RPLHookContext* context, int argIndex, char* value);
+
+float RPLGetFloatArg(RPLHookContext* context, int argIndex);
+void RPLSetFloatArg(RPLHookContext* context, int argIndex, float value);
+
+double RPLGetDoubleArg(RPLHookContext* context, int argIndex);
+void RPLSetDoubleArg(RPLHookContext* context, int argIndex, double value);
 
 typedef void(*RPLHookFunc)(RPLHookContext* context, void* userData);
 

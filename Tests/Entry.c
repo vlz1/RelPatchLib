@@ -1,4 +1,3 @@
-#include "RelPatch.h"
 #include "TestCommon.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,9 +7,11 @@
 #define TEST_COUNT (sizeof(s_Tests) / sizeof(Test))
 
 bool TEST_ExactPatternMatch();
+bool TEST_PrologueHook();
 
 static const Test s_Tests[] = {
-    { "ExactPatternMatch", TEST_ExactPatternMatch }
+    { "ExactPatternMatch", TEST_ExactPatternMatch },
+    { "PrologueHook", TEST_PrologueHook }
 };
 
 void PrintUsage(const char* name)

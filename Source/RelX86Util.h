@@ -13,12 +13,6 @@
 
 typedef struct
 {
-    uint8_t* code;
-    uint32_t codeLength;
-} RPLTrampoline;
-
-typedef struct
-{
     //
     // Inputs
     //

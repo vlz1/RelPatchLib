@@ -1,5 +1,6 @@
 #include "RelX86Util.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 bool RPLGetInstructionRelocation(uint8_t* address, const ZydisDisassembledInstruction* instruction, RPLRelocation* relocation)
 {

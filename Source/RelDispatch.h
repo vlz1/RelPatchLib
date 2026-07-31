@@ -2,6 +2,7 @@
 #define RELDISPATCH_H
 
 #include "RelPatch.h"
+#include "RelPlatform.h"
 
 typedef struct
 {
@@ -10,10 +11,13 @@ typedef struct
     int priority;
 } RPLDispatchEntry;
 
+#define RPL_DISPATCH_HAS_EPILOGUE (1 << 0)
+
 typedef struct
 {
-    uint32_t nDispatchEntries;
-    uint32_t nMaxDispatchEntries;
+    uint16_t flags;
+    uint16_t nDispatchEntries;
+    uint16_t nMaxDispatchEntries;
     RPLDispatchEntry entries[RPL_DISPATCH_TABLE_ENTRIES];
 } RPLDispatchTable;
 
@@ -30,7 +34,7 @@ typedef struct
     RPLCodePageMeta meta;
 } RPLCodePage;
 
-RPLStatus RPLDispatchCommon(RPLCodePage* codePage, RPLHookContext* context);
+RPLThreadContext* RPLDispatchCommon(RPLCodePage* codePage, RPLHookContext* context, void* returnAddress);
 RPLStatus RPLAppendHookToDispatch(RPLCodePage* codePage, RPLHookFunc hook, uint32_t priority, void* userData);
 
 #endif

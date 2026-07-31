@@ -5,27 +5,23 @@
 struct RPLHookContext
 {
     RPLConvention callingConvention;
-    uint32_t reserved;
+    uint32_t fromEpilogue;
     RPLRegisterInt* stackArgs;
     RPLRegisterInt* integerArgs;
     __m128* vectorArgs;
 };
 
+bool RPLIsEpilogueContext(RPLHookContext* context)
+{
+    return context->fromEpilogue != 0;
+}
+
 static void* RPLGetIntArgLocation(RPLHookContext* context, int argIndex)
 {
-    if (context->callingConvention == RPL_CALL_X64_MS_ABI)
-    {
-        if (argIndex < 4)
-            return &context->integerArgs[argIndex];
-        return &context->stackArgs[argIndex - 4];
-    }
-    else if (context->callingConvention == RPL_CALL_X64_SYSV_ABI)
-    {
-        if (argIndex < 6)
-            return &context->integerArgs[argIndex];
-        return &context->stackArgs[argIndex - 6];
-    }
-    return NULL;
+    int nRegArgs = (context->callingConvention == RPL_CALL_X64_MS_ABI) ? 4 : 6;
+    if (argIndex < nRegArgs)
+        return &context->integerArgs[argIndex];
+    return &context->stackArgs[argIndex - nRegArgs];
 }
 
 RPLRegisterInt RPLGetIntArg(RPLHookContext* context, int argIndex)

@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(RelPatchLib LANGUAGES C ASM)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
+
 option(RPL_BUILD_TESTS  "Build unit tests" ON)
 option(RPL_BUILD_X86_32 "Build for 32-bit x86, even if building with a 64-bit compiler" OFF)
 
@@ -17,6 +19,9 @@ endif ()
 
 set(ZYDIS_FEATURE_ENCODER OFF CACHE BOOL "Disable Zydis Encoder")
 add_subdirectory(Zydis)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 
 add_library(RelPatchLib STATIC
     Include/RelPatch.h

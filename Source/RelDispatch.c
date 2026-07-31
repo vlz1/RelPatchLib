@@ -1,15 +1,33 @@
 #include "RelPatch.h"
 #include "RelDispatch.h"
+#include "RelPlatform.h"
+#include <stdio.h>
 
-RPLStatus RPLDispatchCommon(RPLCodePage* codePage, RPLHookContext* context)
+RPLThreadContext* RPLDispatchCommon(RPLCodePage* codePage, RPLHookContext* context, void* returnAddress)
 {
     RPLDispatchTable* dispatchTable = codePage->meta.dispatchTable;
-    for (uint16_t i = 0; i < dispatchTable->nDispatchEntries; ++i)
+    RPLThreadContext* threadContext = NULL;
+    RPLPlatformGetThreadContext(&threadContext);
+
+    printf("DISPATCH: %p\n", threadContext);
+    if (!RPLIsEpilogueContext(context))
     {
-        RPLDispatchEntry* entry = &dispatchTable->entries[i];
-        entry->function(context, entry->userData);
+        for (uint16_t i = 0; i < dispatchTable->nDispatchEntries; ++i)
+        {
+            RPLDispatchEntry* entry = &dispatchTable->entries[i];
+            entry->function(context, entry->userData);
+        }
+        printf("PROLOGUE: return to %p\n", returnAddress);
+        fflush(stdout);
+        threadContext->epilogueReturnAddress = returnAddress;
+        return NULL;
     }
-    return RPL_STATUS_SUCCESS;
+    else
+    {
+        printf("EPILOGUE: return to %p\n", threadContext->epilogueReturnAddress);
+        fflush(stdout);
+        return threadContext;
+    }
 }
 
 RPLStatus RPLAppendHookToDispatch(RPLCodePage* codePage, RPLHookFunc hook, uint32_t priority, void* userData)

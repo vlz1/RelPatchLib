@@ -77,6 +77,8 @@ typedef enum
 
 typedef struct RPLHookContext RPLHookContext;
 
+bool RPLIsEpilogueContext(RPLHookContext* context);
+
 RPLRegisterInt RPLGetIntArg(RPLHookContext* context, int argIndex);
 void RPLSetIntArg(RPLHookContext* context, int argIndex, RPLRegisterInt value);
 

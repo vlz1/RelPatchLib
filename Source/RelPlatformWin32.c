@@ -2,6 +2,9 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <stdlib.h>
+
+static DWORD s_RelTLSIndex = TLS_OUT_OF_INDEXES;
 
 static inline HMODULE RPLWin32GetModuleFromAddress(void* address)
 {
@@ -201,4 +204,38 @@ RPLStatus RPLPlatformAllocPagesWithin2GB(void* baseAddress, size_t nPages, void*
     *addressOut = ptr;
     return RPL_STATUS_SUCCESS;
 #endif
+}
+
+RPLStatus RPLPlatformGetThreadContext(RPLThreadContext** threadContextOut)
+{
+    if (s_RelTLSIndex == TLS_OUT_OF_INDEXES)
+    {
+        s_RelTLSIndex = TlsAlloc();
+        if (s_RelTLSIndex == TLS_OUT_OF_INDEXES)
+            return RPL_STATUS_PLATFORM_ERROR;
+    }
+
+    LPVOID value = TlsGetValue(s_RelTLSIndex);
+    if (value == NULL)
+    {
+        value = malloc(sizeof(RPLThreadContext));
+        if (value == NULL)
+            return RPL_STATUS_ALLOCATION_FAILED;
+        TlsSetValue(s_RelTLSIndex, value);
+    }
+
+    *threadContextOut = (RPLThreadContext*)value;
+    return RPL_STATUS_SUCCESS;
+}
+
+void RPLPlatformCleanup()
+{
+    if (s_RelTLSIndex != TLS_OUT_OF_INDEXES)
+    {
+        LPVOID context = TlsGetValue(s_RelTLSIndex);
+        if (context != NULL)
+            free(context);
+        TlsFree(s_RelTLSIndex);
+        s_RelTLSIndex = TLS_OUT_OF_INDEXES;
+    }
 }

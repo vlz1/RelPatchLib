@@ -96,8 +96,9 @@ void RPLSetDoubleArg(RPLHookContext* context, int argIndex, double value);
 
 typedef void(*RPLHookFunc)(RPLHookContext* context, void* userData);
 
-RPLStatus RPLInstallPrologueHookEx(void* function, RPLHookFunc hook, RPLConvention callingConvention, uint32_t priority, void* userData);
-RPLStatus RPLInstallPrologueHook(void* function, RPLHookFunc hook, RPLConvention callingConvention);
+RPLStatus RPLInstallHookEx(void* function, RPLHookFunc prologueHook, RPLHookFunc epilogueHook, RPLConvention callingConvention, uint32_t priority, void* userData);
+RPLStatus RPLInstallHook(void* function, RPLHookFunc prologueHook, RPLHookFunc epilogueHook, RPLConvention callingConvention);
+bool RPLIsFunctionHooked(void* function, RPLConvention* callingConventionOut);
 
 // Allocate n read/write pages within +/- 2 GB of the given address. Returns NULL if no pages could be allocated.
 void* RPLAllocatePagesWithin2GB(void* address, size_t nPages);

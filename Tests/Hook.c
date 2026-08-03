@@ -8,7 +8,7 @@ static volatile int s_PrologueHookIntArgsCorrect = 0;
 static volatile int s_PrologueHookFloatArgsCorrect = 0;
 static volatile int s_PrologueHookStackArgsCorrect = 0;
 
-typedef void (*TargetFunctionPtr)(int a, int b, float c, float d, int e, int f, int g, int h);
+typedef void (*PrologueTargetFunctionPtr)(int a, int b, float c, float d, int e, int f, int g, int h);
 
 RPL_NO_INLINE void PrologueHookTargetFunction(int a, int b, float c, float d, int e, int f, int g, int h)
 {
@@ -44,15 +44,16 @@ bool TEST_PrologueHook()
 
     // Volatile pointer is necessary to stop GCC from being a brat and duplicating the function on optimized builds.
     // You'd think __attribute__((noinline)) would already imply that I only want one instance of it, but apparently not.
-    volatile TargetFunctionPtr target = PrologueHookTargetFunction;
-    RPLStatus status = RPLInstallPrologueHook(
+    volatile PrologueTargetFunctionPtr target = PrologueHookTargetFunction;
+    RPLStatus status = RPLInstallHook(
         target,
         PrologueHookFunction,
+        NULL,
         RPL_DEFAULT_CONVENTION
     );
     if (!RPL_SUCCESSFUL(status))
     {
-        PrintError("RPLInstallPrologueHook: %s", RPLGetStatusString(status));
+        PrintError("RPLInstallHook: %s", RPLGetStatusString(status));
         return false;
     }
 
@@ -79,6 +80,99 @@ bool TEST_PrologueHook()
     if (!s_PrologueHookStackArgsCorrect)
     {
         PrintError("Prologue hook received wrong stack arguments");
+        return false;
+    }
+
+    return true;
+}
+
+static const int s_EpilogueHookNewReturnValue = 500;
+static volatile int s_EpilogueHookCalled = 0;
+static volatile int s_EpilogueHookIntArgsCorrect = 0;
+static volatile int s_EpilogueHookFloatArgsCorrect = 0;
+static volatile int s_EpilogueHookStackArgsCorrect = 0;
+
+typedef int (*EpilogueTargetFunctionPtr)(int a, int b, float c, float d, int e, int f, int g, int h);
+
+RPL_NO_INLINE int EpilogueHookTargetFunction(int a, int b, float c, float d, int e, int f, int g, int h)
+{
+    printf("%d %d %f %f %d %d %d %d\n", a, b, c, d, e, f, g, h);
+    return 100;
+}
+
+RPL_NO_INLINE void EpilogueHookFunction(RPLHookContext* context, void* userData)
+{
+    if (!RPLIsEpilogueContext(context))
+    {
+        s_EpilogueHookCalled = 0;
+        return;
+    }
+    s_EpilogueHookCalled = 1;
+
+    int a = RPLGetIntArg(context, 0);
+    int b = RPLGetIntArg(context, 1);
+    if (a == 1 && b == 2)
+        s_EpilogueHookIntArgsCorrect = 1;
+
+    float c = RPLGetFloatArg(context, 2);
+    float d = RPLGetFloatArg(context, 3);
+    if (c == 3.0f && d == 4.0f)
+        s_EpilogueHookFloatArgsCorrect = 1;
+
+    int g = RPLGetIntArg(context, 6);
+    int h = RPLGetIntArg(context, 7);
+    if (g == 7 && h == 8)
+        s_EpilogueHookStackArgsCorrect = 1;
+}
+
+bool TEST_EpilogueHook()
+{
+    s_EpilogueHookCalled = 0;
+    s_EpilogueHookIntArgsCorrect = 0;
+    s_EpilogueHookFloatArgsCorrect = 0;
+    s_EpilogueHookStackArgsCorrect = 0;
+
+    volatile EpilogueTargetFunctionPtr target = EpilogueHookTargetFunction;
+    RPLStatus status = RPLInstallHook(
+        target,
+        NULL,
+        EpilogueHookFunction,
+        RPL_DEFAULT_CONVENTION
+    );
+    if (!RPL_SUCCESSFUL(status))
+    {
+        PrintError("RPLInstallHook: %s", RPLGetStatusString(status));
+        return false;
+    }
+
+    int returnValue = target(1, 2, 3.0f, 4.0f, 5, 6, 7, 8);
+    if (!s_EpilogueHookCalled)
+    {
+        PrintError("Epilogue hook wasn't called");
+        return false;
+    }
+    
+    if (returnValue != s_EpilogueHookNewReturnValue)
+    {
+        PrintError("Epilogue hook didn't override return value");
+        return false;
+    }
+
+    if (!s_EpilogueHookIntArgsCorrect)
+    {
+        PrintError("Epilogue hook received wrong integer arguments");
+        return false;
+    }
+
+    if (!s_EpilogueHookFloatArgsCorrect)
+    {
+        PrintError("Epilogue hook received wrong floating-point arguments");
+        return false;
+    }
+
+    if (!s_EpilogueHookStackArgsCorrect)
+    {
+        PrintError("Epilogue hook received wrong stack arguments");
         return false;
     }
 

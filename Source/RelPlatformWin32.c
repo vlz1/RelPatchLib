@@ -218,7 +218,7 @@ RPLStatus RPLPlatformGetThreadContext(RPLThreadContext** threadContextOut)
     LPVOID value = TlsGetValue(s_RelTLSIndex);
     if (value == NULL)
     {
-        value = malloc(sizeof(RPLThreadContext));
+        value = calloc(1, sizeof(RPLThreadContext));
         if (value == NULL)
             return RPL_STATUS_ALLOCATION_FAILED;
         TlsSetValue(s_RelTLSIndex, value);

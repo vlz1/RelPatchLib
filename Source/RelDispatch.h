@@ -6,7 +6,8 @@
 
 typedef struct
 {
-    RPLHookFunc function;
+    RPLHookFunc prologue;
+    RPLHookFunc epilogue;
     void* userData;
     int priority;
 } RPLDispatchEntry;
@@ -24,6 +25,7 @@ typedef struct
 typedef struct
 {
     uint32_t signature;
+    RPLConvention callingConvention;
     RPLDispatchTable* dispatchTable;
 } RPLCodePageMeta;
 
@@ -35,6 +37,6 @@ typedef struct
 } RPLCodePage;
 
 RPLThreadContext* RPLDispatchCommon(RPLCodePage* codePage, RPLHookContext* context, void* returnAddress);
-RPLStatus RPLAppendHookToDispatch(RPLCodePage* codePage, RPLHookFunc hook, uint32_t priority, void* userData);
+RPLStatus RPLAppendHookToDispatch(RPLCodePage* codePage, RPLHookFunc prologueHook, RPLHookFunc epilogueHook, uint32_t priority, void* userData);
 
 #endif

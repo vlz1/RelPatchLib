@@ -7,8 +7,10 @@ struct RPLHookContext
     RPLConvention callingConvention;
     uint32_t fromEpilogue;
     RPLRegisterInt* stackArgs;
-    RPLRegisterInt* integerArgs;
-    __m128* vectorArgs;
+    RPLRegisterInt integerArgs[6];
+    RPLRegisterInt rax;
+    RPLRegisterInt rbp;
+    __m128 vectorArgs[8];
 };
 
 bool RPLIsEpilogueContext(RPLHookContext* context)

@@ -8,10 +8,12 @@
 
 bool TEST_ExactPatternMatch();
 bool TEST_PrologueHook();
+bool TEST_EpilogueHook();
 
 static const Test s_Tests[] = {
     { "ExactPatternMatch", TEST_ExactPatternMatch },
-    { "PrologueHook", TEST_PrologueHook }
+    { "PrologueHook", TEST_PrologueHook },
+    { "EpilogueHook", TEST_EpilogueHook }
 };
 
 void PrintUsage(const char* name)
@@ -69,5 +71,5 @@ int main(int argc, char** argv)
     }
 
     PrintError("Test \"%s\" not found!", argv[1]);
-    return 0;
+    return EXIT_FAILURE;
 }

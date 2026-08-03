@@ -1,15 +1,25 @@
 // 8 bytes to align the stack
+// 256 bytes for RPLHookContext
+// 32 bytes for RPLDispatchCommon shadow space
+
+.set TRAMPOLINE_HookContextSize, 256
+.set TRAMPOLINE_StackSize, (8 + TRAMPOLINE_HookContextSize + 32)
+.set TRAMPOLINE_StackContextBase, (TRAMPOLINE_StackSize - (TRAMPOLINE_HookContextSize + 8))
+.set TRAMPOLINE_StackGPRBase, (TRAMPOLINE_StackContextBase + 16)
+.set TRAMPOLINE_StackXMMBase, (TRAMPOLINE_StackContextBase + 80)
+.set TRAMPOLINE_StackRAX, (TRAMPOLINE_StackContextBase + 64)
+.set TRAMPOLINE_StackRBP, (TRAMPOLINE_StackContextBase + 72)
+
 // 48 bytes for RCX, RDX, R8, R9, RAX, and RBP
 // 64 bytes for XMM0-3
 // 32 bytes for RPLHookContext
 // 32 bytes for RPLDispatchCommon shadow space
-.set TRAMPOLINE_StackSize, (8 + 48 + 64 + 32 + 32)
-
-.set TRAMPOLINE_StackGPRBase, (TRAMPOLINE_StackSize - (48 + 8))
-.set TRAMPOLINE_StackRAX, (TRAMPOLINE_StackGPRBase + 32)
-.set TRAMPOLINE_StackRBP, (TRAMPOLINE_StackGPRBase + 40)
-.set TRAMPOLINE_StackXMMBase, (TRAMPOLINE_StackGPRBase - 64)
-.set TRAMPOLINE_StackContextBase, (TRAMPOLINE_StackXMMBase - 32)
+//.set TRAMPOLINE_StackSize, (8 + 48 + 64 + 32 + 32)
+//.set TRAMPOLINE_StackGPRBase, (TRAMPOLINE_StackSize - (48 + 8))
+//.set TRAMPOLINE_StackRAX, (TRAMPOLINE_StackGPRBase + 32)
+//.set TRAMPOLINE_StackRBP, (TRAMPOLINE_StackGPRBase + 40)
+//.set TRAMPOLINE_StackXMMBase, (TRAMPOLINE_StackGPRBase - 64)
+//.set TRAMPOLINE_StackContextBase, (TRAMPOLINE_StackXMMBase - 32)
 
 .global TRAMPOLINE_Prologue_Win64
 TRAMPOLINE_Prologue_Win64:
@@ -38,8 +48,8 @@ _TRAMPOLINE_SaveRegs:
     movq %rbp, TRAMPOLINE_StackRBP(%rsp)
 
     // Get address of current code page for RPLDispatchCommon first arg
-.set _TRAMPOLINE_Prologue_PageOffset, . - TRAMPOLINE_Prologue_Win64
-    lea -7 - _TRAMPOLINE_Prologue_PageOffset(%rip), %rcx
+.set _TRAMPOLINE_PageOffset, . - TRAMPOLINE_Prologue_Win64
+    leaq -7 - _TRAMPOLINE_PageOffset(%rip), %rcx
 
     // Build x64 RPLHookContext
     leaq TRAMPOLINE_StackContextBase(%rsp), %rdx
@@ -47,20 +57,27 @@ _TRAMPOLINE_SaveRegs:
     movl %r8d, 4(%rdx)
     leaq TRAMPOLINE_StackSize + 40(%rsp), %rax
     movq %rax, 8(%rdx)
-    leaq TRAMPOLINE_StackGPRBase(%rsp), %rax
-    movq %rax, 16(%rdx)
-    leaq TRAMPOLINE_StackXMMBase(%rsp), %rax
-    movq %rax, 24(%rdx)
 
     // Get return address for RPLDispatchCommon third arg
-    leaq (_TRAMPOLINE_EpilogueEntry - . - 7)(%rip), %r8
-    xchgq TRAMPOLINE_StackSize(%rsp), %r8
+    movq TRAMPOLINE_StackSize(%rsp), %r8
+
+    // Check dispatch table to see if we need to overwrite the return address for epilogue hooks
+    movq 4096 - 8(%rcx), %rax
+    testw $1, (%rax)
+
+    // Linker hates this JZ REL8
+    .byte 0x74
+    .byte _TRAMPOLINE_EpilogueOverwriteEnd - _TRAMPOLINE_EpilogueOverwrite
+_TRAMPOLINE_EpilogueOverwrite:    
+    leaq (_TRAMPOLINE_EpilogueEntry - . - 7)(%rip), %rax
+    movq %rax, TRAMPOLINE_StackSize(%rsp)
+_TRAMPOLINE_EpilogueOverwriteEnd:
 
     // CALL QWORD PTR [RIP + REL32] -> RPLDispatchCommon
-.set _TRAMPOLINE_Prologue_CallOffset, . - TRAMPOLINE_Prologue_Win64
+.set _TRAMPOLINE_CallOffset, . - TRAMPOLINE_Prologue_Win64
     .byte 0xFF
     .byte 0x15
-.set _TRAMPOLINE_Prologue_CallRel32, . - TRAMPOLINE_Prologue_Win64
+.set _TRAMPOLINE_CallRel32, . - TRAMPOLINE_Prologue_Win64
     .long 0x00000000
 
     // Restore float registers
@@ -102,8 +119,8 @@ TRAMPOLINE_Prologue_Win64_Length:
 
 .global TRAMPOLINE_Prologue_Win64_CallOffset
 TRAMPOLINE_Prologue_Win64_CallOffset:
-    .long _TRAMPOLINE_Prologue_CallOffset
+    .long _TRAMPOLINE_CallOffset
 
 .global TRAMPOLINE_Prologue_Win64_CallRel32Offset
 TRAMPOLINE_Prologue_Win64_CallRel32Offset:
-    .long _TRAMPOLINE_Prologue_CallRel32
+    .long _TRAMPOLINE_CallRel32

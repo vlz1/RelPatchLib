@@ -36,7 +36,7 @@ void* RPLAllocatePagesWithin2GB(void* address, size_t nPages)
     return addressOut;
 }
 
-RPLStatus RPLInstallPrologueHookEx(void* function, RPLHookFunc hook, RPLConvention callingConvention, uint32_t priority, void* userData)
+RPLStatus RPLInstallHookEx(void* function, RPLHookFunc prologueHook, RPLHookFunc epilogueHook, RPLConvention callingConvention, uint32_t priority, void* userData)
 {
     RPLStatus status = RPL_STATUS_SUCCESS;
     uint8_t* functionBytes = (uint8_t*)function;
@@ -71,11 +71,11 @@ RPLStatus RPLInstallPrologueHookEx(void* function, RPLHookFunc hook, RPLConventi
             // If it's one of our code pages, just add the hook function to the existing dispatch table
             RPLCodePage* codePage = (RPLCodePage*)jumpTarget;
             if (codePage->meta.signature == RPL_CODE_SIGNATURE)
-                return RPLAppendHookToDispatch(codePage, hook, priority, userData);
+                return RPLAppendHookToDispatch(codePage, prologueHook, epilogueHook, priority, userData);
         }
 
         // Follow the relative jump and hook the target function
-        return RPLInstallPrologueHookEx(jumpTarget, hook, callingConvention, priority, userData);
+        return RPLInstallHookEx(jumpTarget, prologueHook, epilogueHook, callingConvention, priority, userData);
     }
 
     // Allocate the page for our dispatch code
@@ -97,10 +97,11 @@ RPLStatus RPLInstallPrologueHookEx(void* function, RPLHookFunc hook, RPLConventi
     }
 
     codePage->meta.signature = RPL_CODE_SIGNATURE;
+    codePage->meta.callingConvention = callingConvention;
     codePage->meta.dispatchTable = dispatchTable;
     dispatchTable->nDispatchEntries = 0;
     dispatchTable->nMaxDispatchEntries = RPL_DISPATCH_TABLE_ENTRIES;
-    status = RPLAppendHookToDispatch(codePage, hook, priority, userData);
+    status = RPLAppendHookToDispatch(codePage, prologueHook, epilogueHook, priority, userData);
     if (status != RPL_STATUS_SUCCESS)
     {
         RPLPlatformVirtualFree(dispatchTable, dispatchTableSize);
@@ -143,9 +144,26 @@ virtualprotect_failed:
     return RPL_STATUS_VIRTUALPROTECT_FAILED;
 }
 
-RPLStatus RPLInstallPrologueHook(void* function, RPLHookFunc hook, RPLConvention callingConvention)
+RPLStatus RPLInstallHook(void* function, RPLHookFunc prologueHook, RPLHookFunc epilogueHook, RPLConvention callingConvention)
 {
-    return RPLInstallPrologueHookEx(function, hook, callingConvention, 0, NULL);
+    return RPLInstallHookEx(function, prologueHook, epilogueHook, callingConvention, 0, NULL);
+}
+
+bool RPLIsFunctionHooked(void* function, RPLConvention* callingConventionOut)
+{
+    uint8_t* jumpTarget = RPLGetJumpTargetRel32(function);
+    if (jumpTarget == NULL)
+        return false;
+
+    if (!RPLIsAddressPageAligned(jumpTarget))
+        return false;
+
+    RPLCodePage* codePage = (RPLCodePage*)jumpTarget;
+    if (codePage->meta.signature != RPL_CODE_SIGNATURE)
+        return false;
+
+    *callingConventionOut = codePage->meta.callingConvention;
+    return true;
 }
 
 char* RPLDumpInstructions(void* address, int nInstructions, bool withAddresses)
